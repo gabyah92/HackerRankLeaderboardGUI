@@ -54,6 +54,9 @@ def generateExcelSheet(name, df):
     writer.close()
 
 
+check = True  # To check if Total leaderboard should be generated
+
+
 def getAll(tracker_names):
     try:
         global prog_text
@@ -96,7 +99,6 @@ def getAll(tracker_names):
         progress_window.geometry(alignstr)
         progress.pack(padx=10, ipady=20)
         progress.place(x=50, y=10, width=700, height=50)
-        check = True  # To check if Total leaderboard should be generated
         def cleanup():
             global check
             root.attributes('-disabled', False)
@@ -104,6 +106,7 @@ def getAll(tracker_names):
             progress_window.destroy()
             root.state = 'normal'
             check = False
+
         def generate_sheets_thread():
             global check
             global prog_text
