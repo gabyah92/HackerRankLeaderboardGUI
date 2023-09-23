@@ -5,7 +5,7 @@ Built and developed overnight... I really need to sleep more...
 
 **I conduct exams and host practice contests on HackerRank. This is a useful tool to gather Leaderboard Information.**
 
-**It generates an excel sheet for each contestID as well as a final Leaderboard consisting the total sum of all leaderboards.**
+**It generates an excel sheet for each contestID as well as a final Leaderboard, consisting the total sum of all leaderboards.**
 
 ## Usage Instructions:
 - **You can insert your contest ID's in the box in the first window.** 
