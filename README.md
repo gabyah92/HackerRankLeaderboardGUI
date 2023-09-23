@@ -2,7 +2,8 @@
 ![image](https://github.com/gabyah92/HackerRankLeaderboardGUI/assets/22296232/bb9501c1-066f-4d52-b726-b8973179c897)
 Built and developed overnight... I really need to sleep more...
 
-I conduct exams and practice contests on HackerRank. This is a useful to gather Leaderboards.  
+I conduct exams and host practice contests on HackerRank. This is a useful tool to gather Leaderboard Information.  
+It generates an excel sheet for each contestID as well as a final Leaderboard consisting of the total sum of all leaderboards.
 
 ## Usage Instructions:
 **You can insert your contest ID's in the box in the first window. You are meant to insert a single or multiple ID's separated by comma's( , ).**
