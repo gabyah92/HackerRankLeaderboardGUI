@@ -96,8 +96,16 @@ def getAll(tracker_names):
         progress_window.geometry(alignstr)
         progress.pack(padx=10, ipady=20)
         progress.place(x=50, y=10, width=700, height=50)
-
+        check = True  # To check if Total leaderboard should be generated
+        def cleanup():
+            global check
+            root.attributes('-disabled', False)
+            progress_window.wm_protocol(name='WM_DELETE_WINDOW')
+            progress_window.destroy()
+            root.state = 'normal'
+            check = False
         def generate_sheets_thread():
+            global check
             global prog_text
             total_sheets = len(tracker_names)
             finished_sheets = 0
@@ -111,7 +119,8 @@ def getAll(tracker_names):
                     progress_window.after(1000, check_close)
                 else:
                     messagebox.showinfo("Process Interrupted", "Sheets generation process was interrupted.")
-                    progress_window.destroy()
+                    cleanup()
+                    return
             for tracker_name in tracker_names:
                 data = []
                 for offset in range(0, 1000, 100):
@@ -123,23 +132,27 @@ def getAll(tracker_names):
                         response.raise_for_status()
                     except :
                         messagebox.showinfo("Process Interrupted", "Invalid URL || NO Internet!")
-                        progress_window.destroy()
+                        cleanup()
                         return
-
                     try:
                         json_data = response.json()
                     except:
                         print('Error'+str(response.status_code))
+                        messagebox.showinfo("Invalid Response Code", "Something went Wrong!.")
+                        cleanup()
                         return
                     for item in json_data['models']:
                         name = item['hacker']
                         score = item['score']
                         data.append({'Name': name, 'Score': score})
-
-                df = pd.DataFrame(data)
-                dfA = pd.concat([df, dfA], ignore_index=True)
-                generateExcelSheet(tracker_name, df)
-
+                try:
+                    df = pd.DataFrame(data)
+                    dfA = pd.concat([df, dfA], ignore_index=True)
+                    generateExcelSheet(tracker_name, df)
+                except:
+                    messagebox.showinfo("Invalid Data", "Something went Wrong!.")
+                    cleanup()
+                    return
                 names1 = df.to_dict().get("Name")
                 scores1 = df.to_dict().get("Score")
                 d1 = dict()
@@ -178,27 +191,30 @@ def getAll(tracker_names):
                 progress['value'] = progress_percent
                 progress_window.update()
                 dfA = pd.DataFrame( {'Name' : namesf, 'Score' : scoref })
-            generateExcelSheet('TotalHackerrankLeaderBoard', dfA)
+
+            if check:
+                generateExcelSheet('TotalHackerrankLeaderBoard', dfA)
             if progress_window.winfo_viewable():
                 messagebox.showinfo("Process Completed", "Sheets generated successfully.")
-                root.attributes('-disabled', False)
-                progress_window.wm_protocol(name='WM_DELETE_WINDOW')
-                progress_window.destroy()
-                root.state = 'normal'
+                cleanup()
                 return
         threading.Thread(target=generate_sheets_thread).start()
         prog_text = ''
     except:
         messagebox.showinfo('Something Went Wrong!', 'This is Unexpected... Try again!')
-
+        root.attributes('-disabled', False)
+        root.state = 'normal'
+        return
 
 def on_closing():
     root.destroy()
 
 
 def generate_sheets(ids):
-    getAll(ids)
-
+    try:
+        getAll(ids)
+    except :
+        return
 
 def GButton_486_command():
     global prog_text
@@ -248,6 +264,7 @@ id_label.place(x=15, y=2, width=1100, height=131)
 def on_entry_click(event):
     if entry.get("1.0", 'end-1c') == '   Enter Comma Separated values of HACKERRANK_CONTEST_ID\'s':
         entry.delete('1.0', tk.END)
+
 
 # Create the input field #FF6C40
 entry = tk.Text(root)
