@@ -54,7 +54,6 @@ def generateExcelSheet(name, df):
     writer.close()
 
 
-check = True  # To check if Total leaderboard should be generated
 
 
 def getAll(tracker_names):
@@ -100,15 +99,12 @@ def getAll(tracker_names):
         progress.pack(padx=10, ipady=20)
         progress.place(x=50, y=10, width=700, height=50)
         def cleanup():
-            global check
             root.attributes('-disabled', False)
             progress_window.wm_protocol(name='WM_DELETE_WINDOW')
             progress_window.destroy()
             root.state = 'normal'
-            check = False
 
         def generate_sheets_thread():
-            global check
             global prog_text
             total_sheets = len(tracker_names)
             finished_sheets = 0
@@ -195,8 +191,7 @@ def getAll(tracker_names):
                 progress_window.update()
                 dfA = pd.DataFrame( {'Name' : namesf, 'Score' : scoref })
 
-            if check:
-                generateExcelSheet('TotalHackerrankLeaderBoard', dfA)
+            generateExcelSheet('TotalHackerrankLeaderBoard', dfA)
             if progress_window.winfo_viewable():
                 messagebox.showinfo("Process Completed", "Sheets generated successfully.")
                 cleanup()
