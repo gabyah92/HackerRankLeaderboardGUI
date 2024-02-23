@@ -53,8 +53,10 @@ def generateExcelSheet(name, df):
     # Save the Excel file
     writer.close()
 
-
-
+def generateCSVFile(name, df):
+    # Sort the DataFrame by 'Score' column in descending order
+    df = df.sort_values(by='Score', ascending=False)
+    df.to_csv(f'LeaderboardsCSV/{name}.csv', index=False)
 
 def getAll(tracker_names):
     try:
@@ -147,6 +149,7 @@ def getAll(tracker_names):
                 try:
                     df = pd.DataFrame(data)
                     dfA = pd.concat([df, dfA], ignore_index=True)
+                    # generateCSVFile(tracker_name, df)  # BUG
                     generateExcelSheet(tracker_name, df)
                 except:
                     messagebox.showinfo("Invalid Data", "Something went Wrong!.")
@@ -211,7 +214,7 @@ def on_closing():
 def generate_sheets(ids):
     try:
         getAll(ids)
-    except :
+    except:
         return
 
 def GButton_486_command():
@@ -233,6 +236,10 @@ def GButton_486_command():
     except :
         messagebox.showerror('Error', 'Something Went Wrong!')
         return
+    else:
+        import get_marks
+        get_marks.main()
+
 
 
 # Create the main window
