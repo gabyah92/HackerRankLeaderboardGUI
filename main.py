@@ -161,7 +161,7 @@ def getAll(tracker_names):
                         messagebox.showinfo("Invalid Response Code", tracker_name + " was empty!")
                         continue
                     df = pd.DataFrame(data)
-                    dfA = pd.concat([df, dfA], ignore_index=True)
+                    # dfA = pd.concat([df, dfA], ignore_index=True)
                     generateExcelSheet(tracker_name, df)
                 except:
                     messagebox.showinfo("Invalid Data", "Something went Wrong2!.")
