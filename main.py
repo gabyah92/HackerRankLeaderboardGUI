@@ -112,7 +112,6 @@ def getAll(tracker_names):
             finished_sheets = 0
             progress_percent = 0
             warnings.filterwarnings('ignore')
-            dfA = pd.DataFrame({'Name': list(), 'Score': list()})
 
             def check_close():
                 nonlocal progress_window
@@ -122,6 +121,7 @@ def getAll(tracker_names):
                     messagebox.showinfo("Process Interrupted", "Sheets generation process was interrupted.")
                     cleanup()
                     return
+            d3 = dict()
             for tracker_name in tracker_names:
                 data = []
                 for offset in range(0, 1000, 100):
@@ -139,48 +139,35 @@ def getAll(tracker_names):
                         json_data = response.json()
                     except:
                         print('Error'+str(response.status_code))
-                        messagebox.showinfo("Invalid Response Code", "Something went Wrong!.")
+                        messagebox.showinfo("Invalid Response Code", "Something went Wrong1!.")
                         cleanup()
                         return
+                    try :
+                        if len(json_data['models']) == 0:
+                            break
+                    except :
+                        break
                     for item in json_data['models']:
                         name = item['hacker']
                         score = item['score']
+                        if name in d3:
+                            d3.update( { name : d3.get(name)+score } )
+                        else:
+                            d3.update( {name : score} )
                         data.append({'Name': name, 'Score': score})
+
                 try:
+                    if len(data) == 0 :
+                        messagebox.showinfo("Invalid Response Code", tracker_name + " was empty!")
+                        continue
                     df = pd.DataFrame(data)
                     dfA = pd.concat([df, dfA], ignore_index=True)
-                    # generateCSVFile(tracker_name, df)  # BUG
                     generateExcelSheet(tracker_name, df)
                 except:
-                    messagebox.showinfo("Invalid Data", "Something went Wrong!.")
+                    messagebox.showinfo("Invalid Data", "Something went Wrong2!.")
                     cleanup()
                     return
-                names1 = df.to_dict().get("Name")
-                scores1 = df.to_dict().get("Score")
-                d1 = dict()
-                for i in names1:
-                    d1.update({names1.get(i): float(scores1.get(i))})
-                names2 = dfA.to_dict().get("Name")
-                scores2 = dfA.to_dict().get("Score")
-                d2 = dict()
-                for i in names2:
-                    d2.update({names2.get(i): float(scores2.get(i))})
-                d3 = dict()
-                for i in d1:
-                    if i in d2:
-                        d3.update({i: float(d1.get(i)) + float(d2.get(i))})
-                    else:
-                        d3.update({i: float(d1.get(i))})
-                for i in d2:
-                    if i in d1:
-                        continue
-                    else:
-                        d3.update({i: float(d2.get(i))})
-                namesf = []
-                scoref = []
-                for i, uu in d3.items():
-                    namesf.append(i)
-                    scoref.append(float(uu))
+
                 finished_sheets += 1
                 print(f'Finished : {tracker_name}\n')
                 prog_text += f'\nFinished {tracker_name}!\n'
@@ -192,11 +179,17 @@ def getAll(tracker_names):
                 progress_percent = int(finished_sheets / total_sheets * 100)
                 progress['value'] = progress_percent
                 progress_window.update()
-                dfA = pd.DataFrame( {'Name' : namesf, 'Score' : scoref })
 
+            namesf = []
+            scoref = []
+            for i, uu in d3.items():
+                namesf.append(i)
+                scoref.append(float(uu))
+            dfA = pd.DataFrame({'Name': namesf, 'Score': scoref})
             generateExcelSheet('TotalHackerrankLeaderBoard', dfA)
             if progress_window.winfo_viewable():
-                messagebox.showinfo("Process Completed", "Sheets generated successfully.")
+                if len(dfA) != 0:
+                    messagebox.showinfo("Process Completed", "Sheets generated successfully.")
                 cleanup()
                 return
         threading.Thread(target=generate_sheets_thread).start()
