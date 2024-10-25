@@ -12,11 +12,19 @@ prog_text = ''
 
 def generateExcelSheet(name, df):
     # Sort the DataFrame by 'Score' column in descending order
-    df = df.sort_values(by='Score', ascending=False)
+    if name == 'TotalHackerrankLeaderBoard':
+        df = df.sort_values(by='Total Score', ascending=False)
+    else:
+        df = df.sort_values(by='Score', ascending=False)
+
+    # Add rank after sorting
+    df.insert(0, 'Rank', range(1, len(df) + 1))
+
     # Create an Excel writer using openpyxl
     writer = pd.ExcelWriter(f'Leaderboards/{name}.xlsx', engine='openpyxl')
     df.to_excel(writer, index=False, sheet_name='Sheet1')
     worksheet = writer.sheets['Sheet1']
+
     # Define the cell styles
     font_header = Font(name='Arial', size=18, bold=True)
     font_body = Font(name='Arial', size=14, bold=True)
@@ -24,36 +32,41 @@ def generateExcelSheet(name, df):
     fill_body = PatternFill(start_color='00C7ECEC', end_color='00C7ECEC', fill_type='solid')
     align_center = Alignment(horizontal='center', vertical='center')
     border = Border(bottom=Side(style='medium'))
-    df.insert(0, 'Rank', range(1, len(df) + 1))
-    # Set the width of the 'Rank' column
-    worksheet.column_dimensions['A'].width = 22
-    worksheet.column_dimensions['B'].width = 30
-    worksheet.column_dimensions['C'].width = 30
-    # Apply the styling to the 'Rank' column
-    for cell in worksheet['A']:
-        cell.fill = fill_body
-        cell.font = font_body
-        cell.alignment = align_center
-        cell.border = border
+
+    # Set column widths
+    worksheet.column_dimensions['A'].width = 12  # Rank column
+
+    # Set widths for other columns
+    for col in worksheet.columns:
+        column = col[0].column_letter
+        if column == 'A':  # Skip Rank column as it's already set
+            continue
+        worksheet.column_dimensions[column].width = 30
+
+    row_height = 30
+    for row in range(1, worksheet.max_row + 1):
+        worksheet.row_dimensions[row].height = row_height
+
     # Apply formatting to the header row
     for col_num, value in enumerate(df.columns.values):
-        worksheet.cell(row=1, column=col_num + 1).value = value
-        worksheet.cell(row=1, column=col_num + 1).font = font_header
-        worksheet.cell(row=1, column=col_num + 1).fill = fill_header
-        worksheet.cell(row=1, column=col_num + 1).alignment = align_center
-        worksheet.cell(row=1, column=col_num + 1).border = border
+        cell = worksheet.cell(row=1, column=col_num + 1)
+        cell.value = value
+        cell.font = font_header
+        cell.fill = fill_header
+        cell.alignment = align_center
+        cell.border = border
+
     # Apply formatting to the body cells
     for row_num, row in enumerate(df.values):
         for col_num, value in enumerate(row):
-            worksheet.cell(row=row_num + 2, column=col_num + 1).value = value
-            worksheet.cell(row=row_num + 2, column=col_num + 1).font = font_body
-            worksheet.cell(row=row_num + 2, column=col_num + 1).fill = fill_body
-            worksheet.cell(row=row_num + 2, column=col_num + 1).alignment = align_center
-            worksheet.cell(row=row_num + 2, column=col_num + 1).border = border
-    # Save the Excel file
+            cell = worksheet.cell(row=row_num + 2, column=col_num + 1)
+            cell.value = value
+            cell.font = font_body
+            cell.fill = fill_body
+            cell.alignment = align_center
+            cell.border = border
+
     writer.close()
-
-
 
 
 def getAll(tracker_names):
@@ -73,22 +86,18 @@ def getAll(tracker_names):
         progress_text['fg'] = 'white'
         ft = tkFont.Font(family='Times', size=20, weight='bold')
         progress_text['font'] = ft
-        print(f'progress text: {prog_text}'+ '\n')
         progress_text.config(state=tk.NORMAL)
-        progress_text.insert(tk.END, prog_text+ '\n')
+        progress_text.insert(tk.END, prog_text + '\n')
         progress_text.see(tk.END)
         progress_text.config(state=tk.DISABLED)
         progress_text.pack(pady=80)
 
         style = ttk.Style()
-        style.theme_use('clam')  # Use the 'clam' theme as a base
-
-        # Configure the style of the progress bar
+        style.theme_use('clam')
         style.configure("TProgressbar",
-                        thickness=20,  # Customize the thickness of the progress bar
-                        troughcolor='lightgrey',  # Set the background color
-                        background='#FF6C40',  # Set the color of the progress bar
-                        )
+                        thickness=20,
+                        troughcolor='lightgrey',
+                        background='#FF6C40')
         progress = ttk.Progressbar(progress_window, mode='determinate', style="TProgressbar")
         width = 800
         height = 400
@@ -98,6 +107,7 @@ def getAll(tracker_names):
         progress_window.geometry(alignstr)
         progress.pack(padx=10, ipady=20)
         progress.place(x=50, y=10, width=700, height=50)
+
         def cleanup():
             root.attributes('-disabled', False)
             progress_window.wm_protocol(name='WM_DELETE_WINDOW')
@@ -111,15 +121,9 @@ def getAll(tracker_names):
             progress_percent = 0
             warnings.filterwarnings('ignore')
 
-            def check_close():
-                nonlocal progress_window
-                if progress_window.winfo_viewable():
-                    progress_window.after(1000, check_close)
-                else:
-                    messagebox.showinfo("Process Interrupted", "Sheets generation process was interrupted.")
-                    cleanup()
-                    return
-            d3 = dict()
+            # Dictionary to store all participants and their scores for each contest
+            all_participants = {}
+
             for tracker_name in tracker_names:
                 data = []
                 for offset in range(0, 1000, 100):
@@ -129,46 +133,43 @@ def getAll(tracker_names):
                     response = requests.get(url, headers=headers)
                     try:
                         response.raise_for_status()
-                    except :
+                    except:
                         messagebox.showinfo("Process Interrupted", "Invalid URL || NO Internet!")
                         cleanup()
                         return
                     try:
                         json_data = response.json()
                     except:
-                        print('Error'+str(response.status_code))
-                        messagebox.showinfo("Invalid Response Code", "Something went Wrong1!.")
+                        messagebox.showinfo("Invalid Response Code", "Something went Wrong1!")
                         cleanup()
                         return
-                    try :
+                    try:
                         if len(json_data['models']) == 0:
                             break
-                    except :
+                    except:
                         break
+
                     for item in json_data['models']:
                         name = item['hacker']
                         score = item['score']
-                        if name in d3:
-                            d3.update( { name : d3.get(name)+score } )
-                        else:
-                            d3.update( {name : score} )
+                        if name not in all_participants:
+                            all_participants[name] = {contest: 0 for contest in tracker_names}
+                        all_participants[name][tracker_name] = score
                         data.append({'Name': name, 'Score': score})
 
                 try:
-                    if len(data) == 0 :
+                    if len(data) == 0:
                         messagebox.showinfo("Invalid Response Code", tracker_name + " was empty!")
                         continue
                     df = pd.DataFrame(data)
                     generateExcelSheet(tracker_name, df)
                 except:
-                    messagebox.showinfo("Invalid Data", "Something went Wrong2!.")
+                    messagebox.showinfo("Invalid Data", "Something went Wrong2!")
                     cleanup()
                     return
 
                 finished_sheets += 1
-                print(f'Finished : {tracker_name}\n')
                 prog_text += f'\nFinished {tracker_name}!\n'
-                print(f' Inside prog_text :  {prog_text}')
                 progress_text.config(state=tk.NORMAL)
                 progress_text.insert(tk.END, prog_text + '\n')
                 progress_text.see(tk.END)
@@ -177,18 +178,30 @@ def getAll(tracker_names):
                 progress['value'] = progress_percent
                 progress_window.update()
 
-            namesf = []
-            scoref = []
-            for i, uu in d3.items():
-                namesf.append(i)
-                scoref.append(float(uu))
-            dfA = pd.DataFrame({'Name': namesf, 'Score': scoref})
-            generateExcelSheet('TotalHackerrankLeaderBoard', dfA)
+            # Create the total leaderboard DataFrame
+            total_data = []
+            for participant, scores in all_participants.items():
+                row = {'Name': participant}
+                row.update(scores)
+                # Calculate total score
+                row['Total Score'] = sum(scores.values())
+                total_data.append(row)
+
+            df_total = pd.DataFrame(total_data)
+
+            # Reorder columns to put Name first and Total Score last
+            score_columns = [col for col in df_total.columns if col != 'Name' and col != 'Total Score']
+            columns = ['Name'] + score_columns + ['Total Score']
+            df_total = df_total[columns]
+
+            generateExcelSheet('TotalHackerrankLeaderBoard', df_total)
+
             if progress_window.winfo_viewable():
-                if len(dfA) != 0:
+                if len(df_total) != 0:
                     messagebox.showinfo("Process Completed", "Sheets generated successfully.")
                 cleanup()
                 return
+
         threading.Thread(target=generate_sheets_thread).start()
         prog_text = ''
     except:
@@ -197,6 +210,7 @@ def getAll(tracker_names):
         root.state = 'normal'
         return
 
+
 def on_closing():
     root.destroy()
 
@@ -204,8 +218,9 @@ def on_closing():
 def generate_sheets(ids):
     try:
         getAll(ids)
-    except :
+    except:
         return
+
 
 def GButton_486_command():
     global prog_text
@@ -213,17 +228,20 @@ def GButton_486_command():
     if inp == '   Enter Comma Separated values of HACKERRANK_CONTEST_ID\'s':
         messagebox.showerror('Error', 'Enter Something!')
         return
-    try :
-        inp = inp.replace(' ','').replace('\n','').split(',')
+    try:
+        inp = inp.replace(' ', '').replace('\n', '').split(',')
         d = list()
         prog_text += 'Generating leaderboards for : ('
         for i in inp:
-            d.append(i)
-            prog_text += str(i + ",")
-        prog_text = prog_text[:-1]+ ')\n'
-        print(d)
+            if i:  # Only add non-empty strings
+                d.append(i)
+                prog_text += str(i + ",")
+        prog_text = prog_text[:-1] + ')\n'
+        if not d:  # Check if the list is empty
+            messagebox.showerror('Error', 'No valid contest IDs entered!')
+            return
         generate_sheets(d)
-    except :
+    except:
         messagebox.showerror('Error', 'Something Went Wrong!')
         return
 
@@ -243,7 +261,7 @@ root.resizable(width=False, height=False)
 # Create the Enter ID label
 id_label = tk.Label(root)
 id_label["anchor"] = "center"
-ft = tkFont.Font(family='Helvetica', size=60, weight = 'bold')
+ft = tkFont.Font(family='Helvetica', size=60, weight='bold')
 id_label["font"] = ft
 id_label["fg"] = "#FF6C40"
 id_label["justify"] = "center"
@@ -257,7 +275,7 @@ def on_entry_click(event):
         entry.delete('1.0', tk.END)
 
 
-# Create the input field #FF6C40
+# Create the input field
 entry = tk.Text(root)
 entry["borderwidth"] = "5px"
 entry['background'] = "black"
@@ -293,8 +311,10 @@ generate_btn["relief"] = "groove"
 generate_btn["text"] = "Generate Excel Sheets!"
 generate_btn["command"] = GButton_486_command
 generate_btn.place(x=60, y=570, width=1010, height=99)
+
+# Set up window icon and protocol
 root.iconbitmap('venv/logo.ico')
-root.wm_protocol(name='WM_DELETE_WINDOW')
+root.protocol("WM_DELETE_WINDOW", on_closing)
 
 # Start the tkinter event loop
 root.mainloop()
