@@ -6,7 +6,6 @@ import pandas as pd
 import warnings
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 import requests
-import os
 from pathlib import Path
 
 
@@ -209,7 +208,8 @@ class HackerrankLeaderboard:
     def fetch_hackerrank_data(self, tracker_name):
         data = []
         headers = {
-            "User-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/47.0.2526.80 Safari/537.36"
+            "User-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/47.0.2526.80 "
+                          "Safari/537.36"
         }
 
         for offset in range(0, 1000, 100):
@@ -325,15 +325,90 @@ class HackerrankLeaderboard:
             messagebox.showerror('Error', f'An error occurred: {str(e)}')
             self.root.attributes('-disabled', False)
 
+    def combine_sheets_thread(self, student_file, hackerrank_file, progress_window, progress_text, progress):
+        try:
+            # Read student data file
+            self.update_progress(progress_window, progress_text, progress, "Reading student data file...\n", 25)
+            student_df = pd.read_excel(student_file)
+            student_df = student_df[['Roll number', 'Hackerrank']].copy()
+
+            # Clean Hackerrank usernames by removing @ symbol at the beginning and convert to lowercase
+            student_df['Hackerrank'] = student_df['Hackerrank'].str.strip().str.lstrip('@').str.lower()
+
+            # Read Hackerrank leaderboard file
+            self.update_progress(progress_window, progress_text, progress, "Reading Hackerrank leaderboard file...\n",
+                                 50)
+            hackerrank_df = pd.read_excel(hackerrank_file)
+
+            # If there's a Rank column, drop it (we'll recreate it)
+            if 'Rank' in hackerrank_df.columns:
+                hackerrank_df = hackerrank_df.drop('Rank', axis=1)
+
+            # Clean data and convert to lowercase for matching
+            self.update_progress(progress_window, progress_text, progress, "Processing data...\n", 75)
+            student_df['Hackerrank'] = student_df['Hackerrank'].str.strip()
+            hackerrank_df['Name_lower'] = hackerrank_df['Name'].str.strip().str.lower()
+
+            # Merge dataframes using lowercase versions for matching
+            result_df = pd.merge(
+                hackerrank_df,
+                student_df,
+                left_on='Name_lower',
+                right_on='Hackerrank',
+                how='left'
+            )
+
+            # Drop the temporary and redundant columns
+            result_df = result_df.drop(['Hackerrank', 'Name_lower'], axis=1)
+
+            # Sort by Total Score if it exists, otherwise by Score
+            sort_column = 'Total Score' if 'Total Score' in result_df.columns else 'Score'
+            result_df = result_df.sort_values(sort_column, ascending=False)
+
+            # Add Rank column and reorder columns
+            result_df.insert(0, 'Rank', range(1, len(result_df) + 1))
+
+            # Reorder columns to have Rank, Roll number, Name at the start
+            cols = result_df.columns.tolist()
+            cols.remove('Rank')
+            cols.remove('Roll number')
+            cols.remove('Name')
+            final_cols = ['Rank', 'Roll number', 'Name'] + cols
+            result_df = result_df[final_cols]
+
+            # Generate Excel file
+            self.update_progress(progress_window, progress_text, progress, "Generating Excel file...\n", 90)
+            with pd.ExcelWriter('Leaderboards/CombinedLeaderboard.xlsx', engine='openpyxl') as writer:
+                result_df.to_excel(writer, index=False, sheet_name='Sheet1')
+                self.apply_excel_formatting(writer.sheets['Sheet1'], result_df)
+
+            messagebox.showinfo("Success",
+                                f"Excel sheet generated successfully!\n"
+                                f"Total entries: {len(result_df)}\n"
+                                f"Matched entries (with Roll numbers): {result_df['Roll number'].notna().sum()}\n"
+                                f"Unmatched entries: {result_df['Roll number'].isna().sum()}")
+
+        except Exception as e:
+            messagebox.showerror("Error", f"An error occurred: {str(e)}")
+        finally:
+            self.cleanup_progress(progress_window)
+
     def combine_excel_sheets(self):
         try:
-            files = filedialog.askopenfilenames(
-                title='Select Excel Files to Combine',
+            student_file = filedialog.askopenfilename(
+                title='Select Student Data Excel File',
                 filetypes=[('Excel Files', '*.xlsx')],
                 initialdir='Leaderboards/'
             )
+            if not student_file:
+                return
 
-            if not files:
+            hackerrank_file = filedialog.askopenfilename(
+                title='Select Hackerrank Leaderboard Excel File',
+                filetypes=[('Excel Files', '*.xlsx')],
+                initialdir='Leaderboards/'
+            )
+            if not hackerrank_file:
                 return
 
             self.root.attributes('-disabled', True)
@@ -341,46 +416,13 @@ class HackerrankLeaderboard:
 
             threading.Thread(
                 target=self.combine_sheets_thread,
-                args=(files, progress_window, progress_text, progress),
+                args=(student_file, hackerrank_file, progress_window, progress_text, progress),
                 daemon=True
             ).start()
 
         except Exception as e:
             messagebox.showerror("Error", f"An error occurred: {str(e)}")
             self.root.attributes('-disabled', False)
-
-    def combine_sheets_thread(self, files, progress_window, progress_text, progress):
-        try:
-            all_data = []
-            total_files = len(files)
-
-            for idx, file in enumerate(files, 1):
-                filename = os.path.basename(file)
-                self.update_progress(
-                    progress_window, progress_text, progress,
-                    f"Processing {filename}...",
-                    (idx / total_files) * 100
-                )
-
-                df = pd.read_excel(file)
-                contest_name = os.path.splitext(filename)[0]
-
-                if 'Score' in df.columns:
-                    df = df[['Name', 'Score']]
-                    df = df.rename(columns={'Score': contest_name})
-
-                all_data.append(df)
-
-            if all_data:
-                combined_df = self.merge_dataframes(all_data)
-                self.generateExcelSheet('CombinedLeaderboard', combined_df)
-                messagebox.showinfo("Success", "Excel sheets combined successfully!")
-
-        except Exception as e:
-            # messagebox.sh
-            messagebox.showerror("Error", f"An error occurred while combining sheets: {str(e)}")
-        finally:
-            self.cleanup_progress(progress_window)
 
     def merge_dataframes(self, dataframes):
         # Merge all dataframes on Name column
