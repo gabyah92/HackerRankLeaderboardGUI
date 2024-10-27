@@ -332,7 +332,6 @@ class HackerrankLeaderboard:
             student_df = pd.read_excel(student_file)
             student_df = student_df[['Roll number', 'Hackerrank']].copy()
 
-            # Clean Hackerrank usernames by removing @ symbol at the beginning and convert to lowercase
             student_df['Hackerrank'] = student_df['Hackerrank'].str.strip().str.lstrip('@').str.lower()
 
             # Read Hackerrank leaderboard file
