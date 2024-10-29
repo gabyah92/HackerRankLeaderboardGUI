@@ -392,7 +392,18 @@ class HackerrankLeaderboard:
         finally:
             self.cleanup_progress(progress_window)
 
+
     def combine_excel_sheets(self):
+        # Show instruction message box
+        messagebox.showinfo(
+            "Instructions",
+            "Please follow these steps:\n\n"
+            "1. First, upload the Student Batch Excel sheet\n"
+            "   (containing Roll Numbers and Hackerrank IDs)\n\n"
+            "2. Then, upload the TotalHackerrankLeaderBoard.xlsx file\n"
+            "   (generated from the previous step)"
+        )
+
         try:
             student_file = filedialog.askopenfilename(
                 title='Select Student Data Excel File',
