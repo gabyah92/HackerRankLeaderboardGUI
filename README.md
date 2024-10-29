@@ -24,4 +24,6 @@ Built and developed overnight... I really need to sleep more...
 
 - Hackerrank Account : **[gabyah92](https://www.hackerrank.com/gabyah92/)**
 
-Please leave a star.
+**Special shoutout to [renaissance0ne](https://github.com/renaissance0ne) for his contribution!**
+
+## Please leave a star.
